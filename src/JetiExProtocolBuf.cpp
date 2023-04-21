@@ -8,6 +8,7 @@ Copyright (C) 2018 Bernd Wokoeck
 
 Version history:
 0.90   02/04/2018  created
+0.91   21/04/2023  bugfix SetupExFrame, added priority, added valid flag / by nichtgedacht
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the "Software"),
@@ -34,7 +35,7 @@ IN THE SOFTWARE.
 // JetiSensor work data
 ///////////////////////
 JetiSensor::JetiSensor( int arrIdx, JetiExProtocolBuf * pProtocol )
-  : m_id( 0 ), m_value( -1 ), m_bActive( true ), m_textLen( 0 ), m_unitLen( 0 ), m_dataType( 0 ), m_precision( 0 ), m_bufLen( 0 )
+  : m_id( 0 ), m_value( 0 ), m_bActive( true ), m_valid ( false ), m_textLen( 0 ), m_unitLen( 0 ), m_dataType( 0 ), m_precision( 0 ), m_priority( 0 ), m_bufLen( 0 )
 {
   // sensor state
   m_bActive = (pProtocol->m_activeSensors[arrIdx >> 3] & (1 << (arrIdx & 7))) ? true : false;
@@ -47,9 +48,12 @@ JetiSensor::JetiSensor( int arrIdx, JetiExProtocolBuf * pProtocol )
 
   m_dataType = constData.dataType; 
   m_id       = constData.id;
+  m_priority = constData.priority;
 
   // value
   m_value = pProtocol->m_pValues[ arrIdx ].m_value;
+  // value
+  m_valid = pProtocol->m_pValues[ arrIdx ].m_valid;
 
   // copy to combined sensor/value buffer
   copyLabel( (const uint8_t*)constData.text, (const uint8_t*)constData.unit, m_label, sizeof( m_label ), &m_textLen, &m_unitLen );
@@ -105,13 +109,16 @@ void JetiExProtocolBuf::Init( const char * name, JETISENSOR_CONST * pSensorArray
   m_sensorIdx = m_dictIdx = 0;
 }
 
-void JetiExProtocolBuf::SetSensorValue( uint8_t id, int32_t value )
+void JetiExProtocolBuf::SetSensorValue( uint8_t id, int32_t value, bool valid )
 {
   if( m_pValues && id < sizeof( m_sensorMapper ) )
+  {
     m_pValues[ m_sensorMapper[ id ] ].m_value = value;
+    m_pValues[ m_sensorMapper[ id ] ].m_valid = valid;
+  }  
 }
 
-void JetiExProtocolBuf::SetSensorValueGPS( uint8_t id, bool bLongitude, float value )
+void JetiExProtocolBuf::SetSensorValueGPS( uint8_t id, bool bLongitude, float value, bool valid )
 {
   // Jeti doc: If the lowest bit of a decimal point (Bit 5) equals log. 1, the data represents longitude. According to the highest bit (30) of a decimal point it is either West (1) or East (0).
   // Jeti doc: If the lowest bit of a decimal point (Bit 5) equals log. 0, the data represents latitude. According to the highest bit (30) of a decimal point it is either South (1) or North (0).
@@ -123,8 +130,8 @@ void JetiExProtocolBuf::SetSensorValueGPS( uint8_t id, bool bLongitude, float va
   } gps;
 
   // i.e.:
-  // E 11° 33' 22.176" --> 11.55616 --> 11° 33.369' see http://www.gpscoordinates.eu/convert-gps-coordinates.php
-  // N 48° 14' 44.520" --> 48.24570 --> 48° 14.742'
+  // E 11Â° 33' 22.176" --> 11.55616 --> 11Â° 33.369' see http://www.gpscoordinates.eu/convert-gps-coordinates.php
+  // N 48Â° 14' 44.520" --> 48.24570 --> 48Â° 14.742'
   float deg, frac = modff( value, &deg );
   uint16_t deg16 = (uint16_t)fabs( deg );
   uint16_t min16 = (uint16_t)fabs( frac * 0.6f * 100000 );
@@ -136,10 +143,10 @@ void JetiExProtocolBuf::SetSensorValueGPS( uint8_t id, bool bLongitude, float va
   gps.vBytes[3] |= bLongitude  ? 0x20 : 0;
   gps.vBytes[3] |= (value < 0) ? 0x40 : 0;
   
-  SetSensorValue( id, gps.vInt );
+  SetSensorValue( id, gps.vInt, valid );
 }
 
-void JetiExProtocolBuf::SetSensorValueDate( uint8_t id, uint8_t day, uint8_t month, uint16_t year )
+void JetiExProtocolBuf::SetSensorValueDate( uint8_t id, uint8_t day, uint8_t month, uint16_t year, bool valid )
 {
   // Jeti doc: If the lowest bit of a decimal point equals log. 1, the data represents date
   // Jeti doc: (decimal representation: b0-7 day, b8-15 month, b16-20 year - 2 decimals, number 2000 to be added).
@@ -159,10 +166,10 @@ void JetiExProtocolBuf::SetSensorValueDate( uint8_t id, uint8_t day, uint8_t mon
   date.vBytes[2]  = day & 0x1F;
   date.vBytes[2] |= 0x20;
   
-  SetSensorValue( id, date.vInt );
+  SetSensorValue( id, date.vInt, valid );
 }
 
-void JetiExProtocolBuf::SetSensorValueTime( uint8_t id, uint8_t hour, uint8_t minute, uint8_t second )
+void JetiExProtocolBuf::SetSensorValueTime( uint8_t id, uint8_t hour, uint8_t minute, uint8_t second, bool valid )
 {
   // If the lowest bit of a decimal point equals log. 0, the data represents time
   // (decimal representation: b0-7 seconds, b8-15 minutes, b16-20 hours).
@@ -177,7 +184,7 @@ void JetiExProtocolBuf::SetSensorValueTime( uint8_t id, uint8_t hour, uint8_t mi
   date.vBytes[1]  = minute;
   date.vBytes[2]  = hour & 0x1F;
   
-  SetSensorValue( id, date.vInt );
+  SetSensorValue( id, date.vInt, valid );
 }
 
 void JetiExProtocolBuf::SetSensorActive( uint8_t id, bool bEnable, JETISENSOR_CONST * pSensorArray )
@@ -256,18 +263,21 @@ uint8_t JetiExProtocolBuf::SetupExFrame(uint8_t frameCnt, uint8_t * exBuffer )
 	else
 	{
 		int bufLen;
-		int nVal =                                                             // count values 
+		int nVal = 0;                                                           // count values 
 		exBuffer[1] = 0x40;						                               // 2Bit Type(0-3) 0x40=Data, 0x00=Text
 		n = 7;				                                                   // start at 8th byte in buffer
 
 		do
 		{
-			bufLen = 0;                                                              // last value buffer length    
+			bufLen = 0;                                                              // last value buffer length 
 			JetiSensor sensor(m_sensorIdx, this);
 			if (++m_sensorIdx >= m_nSensors)                                         // wrap index when array is at the end
-				m_sensorIdx = 0;
-
-			if (sensor.m_bActive && sensor.m_value != -1)                            // -1 is "invalid"
+      {
+        m_sensorIdx = 0;
+        m_sensorSetCnt++;                                                      // count completed sets of sensors  
+      }
+      // send if current sensor is active, valid and its prio is 0 or prio for it is reached
+      if (sensor.m_bActive && sensor.m_valid && (sensor.m_priority == 0 || !(m_sensorSetCnt % sensor.m_priority))) 
 			{
 				if (sensor.m_id > 15)
 				{

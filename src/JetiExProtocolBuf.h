@@ -8,6 +8,7 @@
   
   Version history:
   0.90   02/04/2018  created
+  0.91   21/04/2023  added priority, added valid flag / by nichtgedacht
 
   Permission is hereby granted, free of charge, to any person obtaining
   a copy of this software and associated documentation files (the "Software"),
@@ -52,6 +53,7 @@ typedef struct /*_JetiSensorConst*/
   char    unit[7];
   uint8_t dataType;
   uint8_t precision;
+  uint8_t priority;
 }
 JetiSensorConst;
 typedef const JetiSensorConst JETISENSOR_CONST; 
@@ -65,11 +67,12 @@ class JetiValue
   friend class JetiExProtocolBuf;
 public:
 
-  JetiValue() : m_value( -1 ) {}
+  JetiValue() : m_value( 0 ), m_valid( false ) {}
 
 protected:
   // value
   int32_t m_value;
+  bool m_valid;
 };
 
 // complete data for a sensor to fill ex frame buffer
@@ -81,12 +84,12 @@ public:
   // Jeti data types
   enum enDataType
   {
-    TYPE_6b   = 0, // int6_t  Data type 6b (-31 ¸31)
-    TYPE_14b  = 1, // int14_t Data type 14b (-8191 ¸8191)
-    TYPE_22b  = 4, // int22_t Data type 22b (-2097151 ¸2097151)
-    TYPE_DT   = 5, // int22_t Special data type – time and date
-    TYPE_30b  = 8, // int30_t Data type 30b (-536870911 ¸536870911) 
-    TYPE_GPS  = 9, // int30_t Special data type – GPS coordinates:  lo/hi minute - lo/hi degree. 
+    TYPE_6b   = 0, // int6_t  Data type 6b (-31 - 31)
+    TYPE_14b  = 1, // int14_t Data type 14b (-8191 - 8191)
+    TYPE_22b  = 4, // int22_t Data type 22b (-2097151 - 2097151)
+    TYPE_DT   = 5, // int22_t Special data type - time and date
+    TYPE_30b  = 8, // int30_t Data type 30b (-536870911 - 536870911) 
+    TYPE_GPS  = 9, // int30_t Special data type - GPS coordinates: lo/hi minute - lo/hi degree. 
   }
   EN_DATA_TYPE;
 
@@ -101,6 +104,9 @@ public:
   // value
   uint8_t m_bActive;
 
+  // value
+  bool m_valid;
+
   // label/description of value
   uint8_t m_label[ 20 ];
   uint8_t m_textLen;
@@ -109,6 +115,7 @@ public:
   // format
   uint8_t  m_dataType;
   uint8_t  m_precision; 
+  uint8_t  m_priority;
   uint8_t  m_bufLen;
 
   // helpers
@@ -129,10 +136,10 @@ public:
   void Init( const char * name,  JETISENSOR_CONST * pSensorArray ); 
 
   void SetDeviceId( uint8_t idLo, uint8_t idHi ) { m_devIdLow = idLo; m_devIdHi = idHi; } // adapt it, when you have multiple sensor devices connected to your REX
-  void SetSensorValue( uint8_t id, int32_t value );
-  void SetSensorValueGPS( uint8_t id, bool bLongitude, float value );
-  void SetSensorValueDate( uint8_t id, uint8_t day, uint8_t month, uint16_t year );
-  void SetSensorValueTime( uint8_t id, uint8_t hour, uint8_t minute, uint8_t second );
+  void SetSensorValue( uint8_t id, int32_t value, bool valid );
+  void SetSensorValueGPS( uint8_t id, bool bLongitude, float value, bool valid );
+  void SetSensorValueDate( uint8_t id, uint8_t day, uint8_t month, uint16_t year, bool valid );
+  void SetSensorValueTime( uint8_t id, uint8_t hour, uint8_t minute, uint8_t second, bool valid );
   void SetSensorActive( uint8_t id, bool bEnable, JETISENSOR_CONST * pSensorArray );
 
 protected:
@@ -156,6 +163,7 @@ protected:
   JetiValue        * m_pValues;                     // sensor value array, same order as constant data array
   int                m_nSensors;                    // number of sensors
   uint8_t            m_sensorIdx;                   // current index to sensor array to send value
+  uint8_t            m_sensorSetCnt;                // completed sets of sensor counter
   uint8_t            m_dictIdx;                     // current index to sensor array to send sensor dictionary
   uint8_t            m_sensorMapper[ MAX_SENSORS ]; // id to idx lookup table to accelerate SetSensorValue()
   uint8_t            m_activeSensors[ MAX_SENSORBYTES ]; // bit array for active sensor bit field
@@ -164,7 +172,7 @@ protected:
   enum
   {
     // Jeti Duplex EX Ids: Manufacturer and device
-    MANUFACTURER_ID_LOW = 0x09, // 0xA409 (Jeti recommended range for 3rd party sensors is 0xA400 – 0xA41F)
+    MANUFACTURER_ID_LOW = 0x09, // 0xA409 (Jeti recommended range for 3rd party sensors is 0xA400 - 0xA41F)
     MANUFACTURER_ID_HI  = 0xA4,
     DEVICE_ID_LOW       = 0x76, // random number: 0x3276
     DEVICE_ID_HI        = 0x32,
