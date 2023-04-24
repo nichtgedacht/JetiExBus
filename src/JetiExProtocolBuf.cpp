@@ -262,37 +262,44 @@ uint8_t JetiExProtocolBuf::SetupExFrame(uint8_t frameCnt, uint8_t * exBuffer )
 	// send EX values in all other frames
 	else
 	{
-		int bufLen;
-		int nVal = 0;                                                           // count values 
+		int nVal = 0;                                                // counts values even of skipped sensors 
 		exBuffer[1] = 0x40;						                               // 2Bit Type(0-3) 0x40=Data, 0x00=Text
-		n = 7;				                                                   // start at 8th byte in buffer
+		n = 7;				                                               // start at 8th byte in buffer
 
-		do
-		{
-			bufLen = 0;                                                              // last value buffer length 
-			JetiSensor sensor(m_sensorIdx, this);
-			if (++m_sensorIdx >= m_nSensors)                                         // wrap index when array is at the end
+    while (1)
+    {
+      JetiSensor sensor(m_sensorIdx, this);   // current sensor object to be handled
+
+      // if current sensor is active, valid and its prio is 0 or prio for it is reached
+      if (sensor.m_bActive && sensor.m_valid && (sensor.m_priority == 0 || !(m_sensorSetCnt % sensor.m_priority)))
       {
-        m_sensorIdx = 0;
-        m_sensorSetCnt++;                                                      // count completed sets of sensors  
-      }
-      // send if current sensor is active, valid and its prio is 0 or prio for it is reached
-      if (sensor.m_bActive && sensor.m_valid && (sensor.m_priority == 0 || !(m_sensorSetCnt % sensor.m_priority))) 
-			{
-				if (sensor.m_id > 15)
-				{
-					exBuffer[n++] = 0x0 | (sensor.m_dataType & 0x0F);               // sensor id > 15 --> put id to next byte
-					exBuffer[n++] = sensor.m_id;
-				}
-				else
-					exBuffer[n++] = (sensor.m_id << 4) | (sensor.m_dataType & 0x0F);  // 4Bit id, 4 bit data type (i.e. int14_t)
+        if ( n + sensor.m_bufLen <= 28) // sensor buflen fits in current frame, go on (n+1 is 29 max)
+        {
+          if (sensor.m_id > 15) // handle id according its number
+				    {
+					    exBuffer[n++] = 0x0 | (sensor.m_dataType & 0x0F);  // sensor id > 15 --> put id to next byte
+					    exBuffer[n++] = sensor.m_id;
+				    }
+				  else
+					  exBuffer[n++] = (sensor.m_id << 4) | (sensor.m_dataType & 0x0F);  // 4Bit id, 4 bit data type (i.e. int14_t)
 
-				bufLen = sensor.m_bufLen;
-				n += sensor.jetiEncodeValue(exBuffer, n);
-			}
-			if (++nVal >= m_nSensors)                                                // dont send twice in a frame
-				break;
-		} while (n < (26 - bufLen));                                               // jeti spec says max 29 Bytes per buffer
+          n += sensor.jetiEncodeValue(exBuffer, n);     // add size of encoded data to buffer position
+
+          if (++m_sensorIdx >= m_nSensors) // current value was funneled in, inc. index to next one and wrap if needed
+            m_sensorIdx = 0;
+          if (sensor.m_priority == 0)                   // assure prio 0 value is on top of every time slot if possible
+            m_sensorSetCnt++;                           // a new prio > 0 state can not be reached before prio 0 value was sent
+
+        } else // sensor bufLen does not fit in this frame leave sensor for next frame 
+          break;
+
+      } else { // skip this sensor
+        if (++m_sensorIdx >= m_nSensors)                // inc. index to next sensor and wrap if needed
+          m_sensorIdx = 0;
+      }
+      if (++nVal >= m_nSensors)                         // dont send any value twice in a frame
+			  break;
+    }
 	}
 
 	// complete some more EX frame data
