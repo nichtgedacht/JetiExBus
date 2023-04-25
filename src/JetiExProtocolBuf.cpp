@@ -285,17 +285,21 @@ uint8_t JetiExProtocolBuf::SetupExFrame(uint8_t frameCnt, uint8_t * exBuffer )
 
           n += sensor.jetiEncodeValue(exBuffer, n);     // add size of encoded data to buffer position
 
-          if (++m_sensorIdx >= m_nSensors) // current value was funneled in, inc. index to next one and wrap if needed
+          if (++m_sensorIdx >= m_nSensors) // current value was funneled in, inc. index to next sensor and wrap if needed
+          {
             m_sensorIdx = 0;
-          if (sensor.m_priority == 0)                   // assure prio 0 value is on top of every time slot if possible
-            m_sensorSetCnt++;                           // a new prio > 0 state can not be reached before prio 0 value was sent
+            m_sensorSetCnt++;                           // inc. completed sets of sensors counter
+          }  
 
         } else // sensor bufLen does not fit in this frame leave sensor for next frame 
           break;
 
       } else { // skip this sensor
         if (++m_sensorIdx >= m_nSensors)                // inc. index to next sensor and wrap if needed
+        {
           m_sensorIdx = 0;
+          m_sensorSetCnt++;                             // inc. completed sets of sensors counter
+        }  
       }
       if (++nVal >= m_nSensors)                         // dont send any value twice in a frame
 			  break;
