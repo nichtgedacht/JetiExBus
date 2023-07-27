@@ -43,23 +43,29 @@ JetiSensor::JetiSensor( int arrIdx, JetiExProtocolBuf * pProtocol )
     return;
 
   // copy constant data 
-  JetiSensorConst constData;
-  memcpy_P( &constData, &pProtocol->m_pSensorsConst[ arrIdx ], sizeof(JetiSensorConst) );
+  //JetiSensorConst constData;
+  //memcpy_P( &constData, &pProtocol->m_pSensorsConst[ arrIdx ], sizeof(JetiSensorConst) );
 
-  m_dataType = constData.dataType; 
-  m_id       = constData.id;
-  m_priority = constData.priority;
+  //m_dataType = constData.dataType;
+  //m_id       = constData.id;
+  //m_priority = constData.priority;
+
+  m_dataType = pProtocol->m_pSensorsConst[ arrIdx ].dataType;
+  m_id       = pProtocol->m_pSensorsConst[ arrIdx ].id;
+  m_priority = pProtocol->m_pSensorsConst[ arrIdx ].priority;
 
   // value
   m_value = pProtocol->m_pValues[ arrIdx ].m_value;
-  // value
+  // value (valid flag)
   m_valid = pProtocol->m_pValues[ arrIdx ].m_valid;
 
   // copy to combined sensor/value buffer
-  copyLabel( (const uint8_t*)constData.text, (const uint8_t*)constData.unit, m_label, sizeof( m_label ), &m_textLen, &m_unitLen );
+  //copyLabel( (const uint8_t*)constData.text, (const uint8_t*)constData.unit, m_label, sizeof( m_label ), &m_textLen, &m_unitLen );
+  copyLabel( (const uint8_t*)pProtocol->m_pSensorsConst[ arrIdx ].text, (const uint8_t*)pProtocol->m_pSensorsConst[ arrIdx ].unit, m_label, sizeof( m_label ), &m_textLen, &m_unitLen );
 
   // 0...2 decimal places
-  switch( constData.precision )
+  //switch( constData.precision )
+  switch(  pProtocol->m_pSensorsConst[ arrIdx ].precision )
   {
   case 1: m_precision = 0x20; break; 
   case 2: m_precision = 0x40; break; 
