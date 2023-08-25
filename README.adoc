@@ -1,7 +1,7 @@
 = Jeti Ex Bus Sensor Library for Arduino
 
 Serial interface to send telemetry and receive channel data to/from Jeti Duplex receivers via EX Bus.
-Current version is for Teensy 3.x., AtMega32u4 and ESP32
+Current version is for Teensy 3.x., AtMega32u4, ESP32 and SAMD21
 
   Version history:
 
@@ -10,11 +10,21 @@ Current version is for Teensy 3.x., AtMega32u4 and ESP32
     0.92   02/14/2018  Support for ESP32 added
     0.93   02/16/2018  ESP32 uart initialization changed
     0.94   02/17/2018  Generic Arduino HardwareSerial support for AtMega328PB
-    0.95   03/17/2018  Synchronization (IsBusReleased) for time consuming operations	
-	
+    0.95   03/17/2018  Synchronization (IsBusReleased) for time consuming operations
+
+  New Version history (was missing since 03/14/2023):  	
+    1.01   03/14/2023 Support for SAMD21 with DMA for ExBusSerial added and 1 bugfix and 1 workarround
+                      for a possible buffer overrun in JetiExBusProtocol.cpp before using DMA
+                      pull request was merged
+    1.02   04/21/2023 Bugfix SetupExFrame(was only 1 sensor per frame), added prio, added valid flag
+    1.03   04/24/2023 Better SetupExFrame, code for priority improved
+    1.04   04/26/2023 Modified prio code again
+    1.05   07/27/2023 Simplified JetiSensor, works with & without PROGMEM
+    1.06   08/25/2023 Corrected example to reflect new interface, added new version history
+
 == License ==
 
- Copyright (C) 2018 by Bernd Wokoeck
+ Copyright (C) 2018 by Bernd Wokoeck and 2023 by nichtgedacht for parts concerned
 
   Permission is hereby granted, free of charge, to any person obtaining
   a copy of this software and associated documentation files (the "Software"),
