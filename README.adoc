@@ -21,6 +21,7 @@ Current version is for Teensy 3.x., AtMega32u4, ESP32 and SAMD21
     1.04   04/26/2023 Modified prio code again
     1.05   07/27/2023 Simplified JetiSensor, works with & without PROGMEM
     1.06   08/25/2023 Corrected example to reflect new interface, added new version history
+    1.07   08/25/2023 Updated Library Properties
 
 == License ==
 
