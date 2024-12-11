@@ -222,7 +222,7 @@ ALT-SERCOM4       |                |                  |  PB08  A6    RX    |   P
 
   // enable interrupts for DMA
   NVIC_EnableIRQ(DMAC_IRQn);
-  NVIC_SetPriority(DMAC_IRQn,0);
+  NVIC_SetPriority(DMAC_IRQn, 1);
 
   // init tx ring buffer 
   m_txHead = 0;
